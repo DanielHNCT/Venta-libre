@@ -1,5 +1,7 @@
+import './style.css'
 import { router } from './utils/router.js';
-import { navbar } from './components/navbar.js';
+import { TopNav } from './components/ui/TopNav.js';
+import { BottomNav } from './components/ui/BottomNav.js';
 import { homePage } from './pages/home.js';
 import { usersPage } from './pages/users.js';
 
@@ -9,9 +11,10 @@ const app = {
   // Inicializar aplicación
   init() {
     this.setupRoutes();
-    this.renderNavbar();
+    this.renderNavigation();
     this.startRouter();
     this.setupGlobalEvents();
+    this.setupResponsiveNavigation();
   },
 
   // Configurar rutas de la SPA
@@ -38,15 +41,44 @@ const app = {
     });
   },
 
-  // Renderizar navbar
-  renderNavbar() {
+  // Renderizar navegaciones responsive
+  renderNavigation() {
     const appContainer = document.getElementById('app');
-    navbar.render(appContainer);
+    
+    // TopNav para desktop
+    TopNav.render(appContainer);
+    
+    // BottomNav para móvil (se renderiza desde cada página)
+    // Se mantiene la lógica actual en homePage
   },
 
   // Iniciar router
   startRouter() {
     router.init();
+  },
+
+  // Configurar navegación responsive
+  setupResponsiveNavigation() {
+    // Manejar cambios de tamaño de pantalla
+    window.addEventListener('resize', () => {
+      this.handleResponsiveNavigation();
+    });
+    
+    // Configurar navegación inicial
+    this.handleResponsiveNavigation();
+  },
+
+  // Manejar navegación responsive
+  handleResponsiveNavigation() {
+    const isDesktop = window.innerWidth > 768;
+    
+    if (isDesktop) {
+      // Desktop: Asegurar TopNav visible
+      TopNav.render(document.body);
+    } else {
+      // Mobile: TopNav se oculta automáticamente por CSS
+      // BottomNav se maneja desde las páginas individuales
+    }
   },
 
   // Eventos globales
