@@ -24,7 +24,7 @@ async fn main() {
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(Any)
-        .allow_origin(Any);
+        .allow_origin("http://localhost:5173".parse::<axum::http::HeaderValue>().unwrap());
 
     // Crear el router principal
     let app = Router::new()
