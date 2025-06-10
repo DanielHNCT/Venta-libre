@@ -2,9 +2,10 @@ mod database;
 mod handlers;
 mod models;
 mod routes;
+mod auth;
 
 use axum::{
-    http::Method,
+    http::{Method, HeaderValue},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -16,6 +17,9 @@ async fn main() {
     // Inicializar logging
     tracing_subscriber::fmt::init();
 
+    // Cargar variables de entorno
+    dotenv::dotenv().ok();
+
     // Crear pool de conexiones a DB
     let pool = create_pool().await
         .expect("Failed to create database pool");
@@ -24,7 +28,7 @@ async fn main() {
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(Any)
-        .allow_origin("http://localhost:5173".parse::<axum::http::HeaderValue>().unwrap());
+        .allow_origin("http://localhost:5173".parse::<HeaderValue>().unwrap());
 
     // Crear el router principal
     let app = Router::new()
@@ -35,6 +39,11 @@ async fn main() {
     // Iniciar servidor
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("🚀 Server running on http://localhost:3000");
+    println!("🔐 Auth endpoints:");
+    println!("   POST /api/v1/auth/register - Registro de usuarios");
+    println!("   POST /api/v1/auth/login - Login");
+    println!("   GET  /api/v1/auth/me - Usuario actual (requiere token)");
+    println!("   POST /api/v1/auth/logout - Logout");
     
     axum::serve(listener, app).await.unwrap();
 }
