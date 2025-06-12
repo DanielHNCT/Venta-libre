@@ -123,16 +123,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(middleware::from_fn(slow_request_middleware));
 
     // Crear rutas principales de la API
-    let api_routes = routes::create_routes();
+    let api_routes = routes::create_routes()
+        .layer(middleware_stack.clone());
 
-    // Crear rutas de health y métricas
+    // Crear rutas de health y métricas (sin auth)
     let health_routes = Router::new()
         .route("/health", get(handlers::health::health_check))
         .route("/health/live", get(handlers::health::liveness_check))
         .route("/health/ready", get(handlers::health::readiness_check))
         .route("/status", get(handlers::health::status_check))
         .route("/info", get(handlers::health::server_info))
-        .with_state(health_checker.clone());
+        .with_state(health_checker.clone())
+        .layer(middleware_stack.clone());
 
     let metrics_routes = Router::new()
         .route("/metrics", get(handlers::metrics::get_metrics))
@@ -142,7 +144,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/metrics/status-distribution", get(handlers::metrics::get_status_distribution))
         .route("/metrics/hourly", get(handlers::metrics::get_hourly_stats))
         .route("/metrics/endpoint/:method/:path", get(handlers::metrics::get_endpoint_metrics))
-        .with_state(metrics_collector.clone());
+        .with_state(metrics_collector.clone())
+        .layer(middleware_stack.clone());
 
     // Configurar middleware para registrar métricas
     let metrics_middleware = {
@@ -180,8 +183,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(metrics_routes)
         // Ruta raíz para verificación básica
         .route("/", get(root_handler))
-        // Aplicar middleware stack
-        .layer(middleware_stack)
+        // Aplicar middleware de métricas a toda la app
         .layer(metrics_middleware)
         // State compartido
         .with_state(pool);

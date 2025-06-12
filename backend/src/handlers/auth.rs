@@ -12,9 +12,11 @@ use crate::models::user::{CreateUserRequest, User};
 
 // POST /api/v1/auth/register
 pub async fn register(
+    
     State(pool): State<PgPool>,
     Json(request): Json<RegisterRequest>,
 ) -> Result<Json<AuthResponse>, (StatusCode, Json<AuthError>)> {
+    tracing::info!("🔄 Intento de registro: email={}", request.email);
     // Validar datos de entrada
     if request.name.trim().is_empty() {
         return Err((
@@ -77,12 +79,17 @@ pub async fn register(
     .bind(password_hash)
     .fetch_one(&pool)
     .await
-    .map_err(|_| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(AuthError::new("create_user_error", "Error al crear usuario")),
-        )
-    })?;
+    .map_err(|e| {
+    tracing::error!(
+        error = %e,
+        email = %request.email,
+        "🚨 Error al crear usuario en BD"
+    );
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(AuthError::new("create_user_error", "Error al crear usuario")),
+    )
+})?;
 
     // Generar token JWT
     let token = generate_token(&user).map_err(|_| {
