@@ -13,97 +13,25 @@ pub struct Logger;
 
 impl Logger {
     pub fn init() -> Result<(), Box<dyn std::error::Error>> {
-        // Crear directorio de logs si no existe
-        fs::create_dir_all("logs")?;
-        
-        let env = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
-        let log_level = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
-        
-        // Configurar archivo de logs con rotación diaria
-        let file_appender = rolling::daily("logs", "venta-libre-api.log");
-        let (non_blocking_file, _guard) = non_blocking(file_appender);
-        
-        // Configurar console output
-        let (non_blocking_stdout, _stdout_guard) = non_blocking(std::io::stdout());
-        
-        let subscriber = tracing_subscriber::registry()
-            .with(
-                EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| EnvFilter::new(&log_level))
-            );
-        
-        match env.as_str() {
-            "production" => {
-                // Producción: JSON estructurado para procesamiento automático
-                let subscriber = subscriber
-                    .with(
-                        fmt::layer()
-                            .json()
-                            .with_writer(non_blocking_file)
-                            .with_target(true)
-                            .with_thread_ids(true)
-                            .with_file(true)
-                            .with_line_number(true)
-                    )
-                    .with(
-                        fmt::layer()
-                            .json()
-                            .with_writer(non_blocking_stdout)
-                            .with_target(false)
-                    );
-                
-                tracing::subscriber::set_global_default(subscriber)?;
-            },
-            "development" => {
-                // Desarrollo: Formato legible y colorido
-                let subscriber = subscriber
-                    .with(
-                        fmt::layer()
-                            .pretty()
-                            .with_writer(non_blocking_file)
-                            .with_target(true)
-                            .with_thread_ids(true)
-                            .with_file(true)
-                            .with_line_number(true)
-                    )
-                    .with(
-                        fmt::layer()
-                            .pretty()
-                            .with_writer(non_blocking_stdout)
-                            .with_target(false)
-                    );
-                
-                tracing::subscriber::set_global_default(subscriber)?;
-            },
-            _ => {
-                // Por defecto: formato compacto
-                let subscriber = subscriber
-                    .with(
-                        fmt::layer()
-                            .compact()
-                            .with_writer(non_blocking_file)
-                    )
-                    .with(
-                        fmt::layer()
-                            .compact()
-                            .with_writer(non_blocking_stdout)
-                    );
-                
-                tracing::subscriber::set_global_default(subscriber)?;
-            }
-        }
-        
-        // Log inicial del sistema
-        tracing::info!(
-            service = "venta-libre-api",
-            version = env!("CARGO_PKG_VERSION"),
-            environment = %env,
-            log_level = %log_level,
-            "🚀 Sistema de logging inicializado"
-        );
-        
-        Ok(())
-    }
+    let env = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
+    let log_level = env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
+    
+    // Configuración super simple para debug
+    tracing_subscriber::fmt()
+        .with_env_filter(&log_level)
+        .with_target(false)
+        .init();
+    
+    tracing::info!(
+        service = "venta-libre-api",
+        version = env!("CARGO_PKG_VERSION"),
+        environment = %env,
+        log_level = %log_level,
+        "🚀 Sistema de logging inicializado (versión simple)"
+    );
+    
+    Ok(())
+}
     
     // Función para logs estructurados de requests
     pub fn log_request(

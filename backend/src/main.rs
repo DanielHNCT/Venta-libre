@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .allow_origin("http://localhost:5173".parse::<HeaderValue>()?);
 
-    // Crear middleware stack profesional
+    // Crear middleware stack profesional - ORDEN CORREGIDO
     let middleware_stack = ServiceBuilder::new()
         // Timeout global para prevenir requests colgados
         .layer(TimeoutLayer::new(Duration::from_secs(30)))
@@ -113,18 +113,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }))
         // Request ID único para trazabilidad
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
-        // Tracing automático de requests
-        .layer(TraceLayer::new_for_http())
         // CORS
         .layer(cors)
-        // Middleware de logging personalizado
+        // Middleware de logging personalizado PRIMERO
         .layer(middleware::from_fn(logging_middleware))
         // Middleware para detectar requests lentos
-        .layer(middleware::from_fn(slow_request_middleware));
+        .layer(middleware::from_fn(slow_request_middleware))
+        // Tracing automático de requests DESPUÉS
+        .layer(TraceLayer::new_for_http());
 
     // Crear rutas principales de la API
-    let api_routes = routes::create_routes()
-        .layer(middleware_stack.clone());
+    let api_routes = routes::create_routes();
 
     // Crear rutas de health y métricas (sin auth)
     let health_routes = Router::new()
@@ -133,8 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/health/ready", get(handlers::health::readiness_check))
         .route("/status", get(handlers::health::status_check))
         .route("/info", get(handlers::health::server_info))
-        .with_state(health_checker.clone())
-        .layer(middleware_stack.clone());
+        .with_state(health_checker.clone());
 
     let metrics_routes = Router::new()
         .route("/metrics", get(handlers::metrics::get_metrics))
@@ -144,8 +142,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/metrics/status-distribution", get(handlers::metrics::get_status_distribution))
         .route("/metrics/hourly", get(handlers::metrics::get_hourly_stats))
         .route("/metrics/endpoint/:method/:path", get(handlers::metrics::get_endpoint_metrics))
-        .with_state(metrics_collector.clone())
-        .layer(middleware_stack.clone());
+        .with_state(metrics_collector.clone());
 
     // Configurar middleware para registrar métricas
     let metrics_middleware = {
@@ -175,18 +172,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Construir aplicación completa
-    let app = Router::new()
-        // Rutas principales de la API
-        .nest("/api/v1", api_routes)
-        // Rutas de monitoreo y salud
-        .merge(health_routes)
-        .merge(metrics_routes)
-        // Ruta raíz para verificación básica
-        .route("/", get(root_handler))
-        // Aplicar middleware de métricas a toda la app
-        .layer(metrics_middleware)
-        // State compartido
-        .with_state(pool);
+let app = Router::new()
+    // Rutas principales de la API
+    .nest("/api/v1", api_routes)
+    // Rutas de monitoreo y salud
+    .merge(health_routes)
+    .merge(metrics_routes)
+    // Ruta raíz para verificación básica
+    .route("/", get(root_handler))
+    // Aplicar middleware de métricas a toda la app
+    .layer(metrics_middleware)
+    // AGREGAR ESTA LÍNEA: Aplicar logging a toda la app
+    .layer(middleware_stack)
+    // State compartido
+    .with_state(pool);
 
     // Configurar dirección y puerto
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
